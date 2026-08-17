@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     QDRANT_COLLECTION: str = "enterprise_knowledge"
     EMBEDDING_MODEL: str = "text-embedding-3-small"
 
+    # Auth0 Configuration
+    AUTH0_DOMAIN: str = os.getenv("AUTH0_DOMAIN", "")
+    AUTH0_AUDIENCE: str = os.getenv("AUTH0_AUDIENCE", "")
+    AUTH0_ALGORITHMS: List[str] = ["RS256"]
+    
+    # Bypass / Mock Auth settings for local development
+    BYPASS_AUTH: bool = os.getenv("BYPASS_AUTH", "true").lower() == "true"
+
+
     class Config:
         case_sensitive = True
         env_file = ".env"

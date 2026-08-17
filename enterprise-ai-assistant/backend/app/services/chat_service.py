@@ -43,8 +43,13 @@ class ChatService:
 
         system_prompt = (
             "You are an advanced enterprise conversational AI assistant. "
-            "You have access to securely indexed internal knowledge bases. "
-            "Respond helpfully, objectively, and accurately using the context provided when available."
+            "You have access to securely indexed internal knowledge bases.\n\n"
+            "Grounding Guidelines:\n"
+            "1. When context is retrieved from the knowledge base, prioritize answering using that context.\n"
+            "2. Cite the source document titles (e.g. [document_name.pdf]) where appropriate.\n"
+            "3. If the retrieved context is empty or does not contain relevant information to address the query, "
+            "clearly state that you cannot find the answer in the provided documents, but answer to the best of your knowledge "
+            "if possible, clearly differentiating between document facts and general knowledge."
         )
 
         assistant_content = ""

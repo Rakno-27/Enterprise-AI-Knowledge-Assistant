@@ -37,6 +37,29 @@ export interface AIModel {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
+let authToken: string | null = localStorage.getItem('auth_token') || null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+  if (token) {
+    localStorage.setItem('auth_token', token);
+  } else {
+    localStorage.removeItem('auth_token');
+  }
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
+function getHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = { ...extra };
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  return headers;
+}
+
 export async function fetchHealthStatus(): Promise<{ status: string }> {
   try {
     const res = await fetch(`${API_BASE_URL}/health`);
@@ -49,7 +72,9 @@ export async function fetchHealthStatus(): Promise<{ status: string }> {
 
 export async function fetchModels(): Promise<AIModel[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/models`);
+    const res = await fetch(`${API_BASE_URL}/models`, {
+      headers: getHeaders()
+    });
     if (!res.ok) throw new Error('Failed to fetch models');
     const data = await res.json();
     return data.models;
@@ -68,7 +93,7 @@ export async function sendChatMessage(
 ): Promise<ChatCompletionResponse> {
   const res = await fetch(`${API_BASE_URL}/chat/completions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       messages,
       model,
@@ -86,7 +111,9 @@ export async function sendChatMessage(
 
 export async function fetchDocuments(): Promise<DocumentMetadata[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/documents`);
+    const res = await fetch(`${API_BASE_URL}/documents`, {
+      headers: getHeaders()
+    });
     if (!res.ok) throw new Error('Failed to fetch documents');
     const data = await res.json();
     return data.documents;
@@ -101,10 +128,14 @@ export async function uploadDocument(file: File): Promise<DocumentMetadata> {
 
   const res = await fetch(`${API_BASE_URL}/documents/upload`, {
     method: 'POST',
+    headers: getHeaders(),
     body: formData
   });
 
   if (!res.ok) {
+    if (res.status === 403) {
+      throw new Error('Access Forbidden: Only Administrators can upload documents.');
+    }
     throw new Error('Failed to upload document');
   }
 
@@ -115,10 +146,16 @@ export async function uploadDocument(file: File): Promise<DocumentMetadata> {
 export async function deleteDocument(docId: string): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/documents/${docId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getHeaders()
     });
+    if (res.status === 403) {
+      alert('Access Forbidden: Only Administrators can delete documents.');
+      return false;
+    }
     return res.ok;
   } catch (err) {
     return false;
   }
 }
+

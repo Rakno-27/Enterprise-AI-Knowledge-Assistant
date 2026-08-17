@@ -9,6 +9,10 @@ class DocumentMetadata(BaseModel):
     size_bytes: int
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     chunks_count: int = 0
+    status: str = "indexed"
+    error_message: Optional[str] = None
+
+
 
 class DocumentUploadResponse(BaseModel):
     success: bool

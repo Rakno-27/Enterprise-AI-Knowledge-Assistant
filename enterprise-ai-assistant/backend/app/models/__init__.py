@@ -1,6 +1,7 @@
 from app.core.database import Base
+from app.models.user import UserDB
 from app.models.document import DocumentDB
-from app.models.chat import ChatMessageDB
+from app.models.chat import ConversationDB, ChatMessageDB
 
-# For table creation imports
-__all__ = ["Base", "DocumentDB", "ChatMessageDB"]
+# For auto table creation imports
+__all__ = ["Base", "UserDB", "DocumentDB", "ConversationDB", "ChatMessageDB"]

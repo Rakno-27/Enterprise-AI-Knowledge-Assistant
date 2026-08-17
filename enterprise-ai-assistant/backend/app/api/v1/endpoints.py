@@ -7,11 +7,15 @@ from app.schemas.chat import (
     ChatCompletionRequest,
     ChatCompletionResponse,
     HealthResponse,
+    SearchRequest,
+    SearchResponse,
 )
 from app.schemas.document import DocumentUploadResponse, DocumentListResponse
 from app.services.chat_service import chat_service
 from app.services.rag_service import rag_service
 from app.core.database import get_db
+from app.core.auth import get_current_user, RequireRole, UserClaims
+
 
 router = APIRouter()
 
@@ -34,7 +38,7 @@ async def list_models():
     }
 
 @router.post("/chat/completions", response_model=ChatCompletionResponse, tags=["Chat"])
-async def chat_completions(request: ChatCompletionRequest, db: Session = Depends(get_db)):
+async def chat_completions(request: ChatCompletionRequest, db: Session = Depends(get_db), user: UserClaims = Depends(get_current_user)):
     try:
         if request.stream:
             return StreamingResponse(
@@ -49,14 +53,14 @@ async def chat_completions(request: ChatCompletionRequest, db: Session = Depends
         )
 
 @router.get("/chat/history/{session_id}", tags=["Chat"])
-async def get_chat_history(session_id: str, db: Session = Depends(get_db)):
+async def get_chat_history(session_id: str, db: Session = Depends(get_db), user: UserClaims = Depends(get_current_user)):
     try:
         return await chat_service.get_session_history(db, session_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/documents/upload", response_model=DocumentUploadResponse, tags=["Knowledge Base"])
-async def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db), user: UserClaims = Depends(RequireRole(["admin"]))):
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 
@@ -77,13 +81,27 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
     )
 
 @router.get("/documents", response_model=DocumentListResponse, tags=["Knowledge Base"])
-async def list_documents(db: Session = Depends(get_db)):
+async def list_documents(db: Session = Depends(get_db), user: UserClaims = Depends(get_current_user)):
     docs = await rag_service.list_documents(db)
     return DocumentListResponse(documents=docs, total=len(docs))
 
 @router.delete("/documents/{doc_id}", tags=["Knowledge Base"])
-async def delete_document(doc_id: str, db: Session = Depends(get_db)):
+async def delete_document(doc_id: str, db: Session = Depends(get_db), user: UserClaims = Depends(RequireRole(["admin"]))):
     success = await rag_service.delete_document(db, doc_id)
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"success": True, "message": f"Document {doc_id} deleted."}
+
+@router.post("/search", response_model=SearchResponse, tags=["Search"])
+async def semantic_search(request: SearchRequest, user: UserClaims = Depends(get_current_user)):
+    try:
+        results = await rag_service.retrieve_context(request.query, top_k=request.top_k)
+        return SearchResponse(
+            query=request.query,
+            results=results
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error executing semantic search: {str(e)}"
+        )

@@ -13,6 +13,9 @@ interface SidebarProps {
   onOpenUploadModal: () => void;
   onDeleteDoc: (docId: string) => void;
   serverStatus: string;
+  userRole: string;
+  userEmail: string;
+  onLogout: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,6 +29,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenUploadModal,
   onDeleteDoc,
   serverStatus,
+  userRole,
+  userEmail,
+  onLogout,
 }) => {
   return (
     <aside className="w-[300px] h-full bg-bg-secondary border-r border-border-subtle flex flex-col p-5 gap-5 shrink-0">
@@ -127,6 +133,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
       </div>
+
+      {/* User Info / Logout */}
+      <div className="pt-4 border-t border-border-subtle flex flex-col gap-2.5">
+        <div className="flex items-center justify-between text-xs text-text-muted">
+          <span>Active Session:</span>
+          <span className="font-semibold text-text-primary capitalize">{userRole}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[0.75rem] text-text-muted truncate">{userEmail}</span>
+          <button
+            onClick={onLogout}
+            className="text-[0.75rem] text-red-400 font-semibold bg-transparent border-none cursor-pointer hover:underline"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
     </aside>
   );
 };
+
