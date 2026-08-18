@@ -7,6 +7,7 @@ class ConversationDB(Base):
     __tablename__ = "conversations"
 
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    client_id = Column(String, ForeignKey("clients.id", ondelete="CASCADE"), nullable=True, index=True)
     title = Column(String, nullable=True)
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

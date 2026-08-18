@@ -6,6 +6,7 @@ class DocumentDB(Base):
     __tablename__ = "documents"
 
     id = Column(String, primary_key=True, index=True)
+    client_id = Column(String, ForeignKey("clients.id", ondelete="CASCADE"), nullable=True, index=True)
     filename = Column(String, nullable=False)
     file_type = Column(String, nullable=False)
     size_bytes = Column(Integer, nullable=False)

@@ -27,7 +27,8 @@ class Settings(BaseSettings):
     
     # Database Configuration
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./enterprise_assistant.db")
-    
+    DEFAULT_CLIENT_ID: str = os.getenv("DEFAULT_CLIENT_ID", "default-client")
+
     # Qdrant Vector DB Configuration
     QDRANT_HOST: str = os.getenv("QDRANT_HOST", "localhost")
     QDRANT_PORT: int = int(os.getenv("QDRANT_PORT", "6333"))

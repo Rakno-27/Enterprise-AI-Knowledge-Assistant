@@ -203,9 +203,17 @@ class RAGService:
         return text.strip()
 
 
-    async def ingest_document(self, db: Session, filename: str, content: bytes, file_type: str) -> DocumentMetadata:
+    async def ingest_document(
+        self,
+        db: Session,
+        filename: str,
+        content: bytes,
+        file_type: str,
+        client_id: Optional[str] = None
+    ) -> DocumentMetadata:
         doc_id = f"doc-{uuid.uuid4().hex[:8]}"
         supported_types = ["pdf", "docx", "doc", "txt", "md"]
+        effective_client_id = client_id or settings.DEFAULT_CLIENT_ID
         
         # 1. File size validation (15MB Limit)
         max_size = 15 * 1024 * 1024
@@ -256,6 +264,7 @@ class RAGService:
                         payload={
                             "doc_id": doc_id,
                             "chunk_id": chunk_id,
+                            "client_id": effective_client_id,
                             "title": filename,
                             "text": chunk["text"],
                             "page_number": chunk["page_number"],
@@ -279,6 +288,7 @@ class RAGService:
             # Save failed record to DB with error details
             doc_db = DocumentDB(
                 id=doc_id,
+                client_id=client_id,
                 filename=filename,
                 file_type=file_type,
                 size_bytes=len(content),
@@ -299,6 +309,7 @@ class RAGService:
         # Save metadata to DB for successful index
         doc_db = DocumentDB(
             id=doc_id,
+            client_id=client_id,
             filename=filename,
             file_type=file_type,
             size_bytes=len(content),
@@ -318,18 +329,35 @@ class RAGService:
             size_bytes=doc_db.size_bytes,
             uploaded_at=doc_db.uploaded_at,
             chunks_count=doc_db.chunks_count,
-            status=doc_db.status,
+            status=doc_status,
             error_message=doc_db.error_message
         )
 
-    async def retrieve_context(self, query: str, top_k: int = 5) -> List[DocumentSource]:
+    async def retrieve_context(
+        self,
+        query: str,
+        top_k: int = 5,
+        client_id: Optional[str] = None
+    ) -> List[DocumentSource]:
         """Perform similarity search on Qdrant and return top K snippets (Default: 5)."""
         vector = self._get_embedding(query)
+        
+        query_filter = None
+        if client_id:
+            query_filter = qdrant_models.Filter(
+                must=[
+                    qdrant_models.FieldCondition(
+                        key="client_id",
+                        match=qdrant_models.MatchValue(value=client_id)
+                    )
+                ]
+            )
         
         try:
             search_result = self.qdrant.query_points(
                 collection_name=settings.QDRANT_COLLECTION,
                 query=vector,
+                query_filter=query_filter,
                 limit=top_k
             )
             

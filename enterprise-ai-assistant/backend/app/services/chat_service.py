@@ -9,7 +9,7 @@ from openai import OpenAI
 from app.core.config import settings
 from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse, DocumentSource, ChatMessage
 from app.services.rag_service import rag_service
-from app.models.chat import ChatMessageDB
+from app.models.chat import ChatMessageDB, ConversationDB
 
 class ChatService:
     def __init__(self):
@@ -25,8 +25,9 @@ class ChatService:
 
         # Store user message in DB if session_id is provided
         if request.session_id:
+            conversation_id = self._get_or_create_conversation(db, request.session_id)
             user_db_msg = ChatMessageDB(
-                session_id=request.session_id,
+                conversation_id=conversation_id,
                 role="user",
                 content=user_message,
                 timestamp=datetime.utcnow()
@@ -59,11 +60,11 @@ class ChatService:
             try:
                 # Prepare conversation history
                 messages_payload = [{"role": "system", "content": system_prompt}]
-                
+
                 # Append last 10 messages for context window memory
                 for msg in request.messages[:-1]:
                     messages_payload.append({"role": msg.role, "content": msg.content})
-                
+
                 # Append current user prompt with injected context
                 messages_payload.append({
                     "role": "user",
@@ -84,8 +85,9 @@ class ChatService:
 
         # Save assistant message to DB
         if request.session_id:
+            conversation_id = self._get_or_create_conversation(db, request.session_id)
             assistant_db_msg = ChatMessageDB(
-                session_id=request.session_id,
+                conversation_id=conversation_id,
                 role="assistant",
                 content=assistant_content,
                 timestamp=datetime.utcnow()
@@ -129,8 +131,30 @@ class ChatService:
             f"You can upload internal guidelines, documentation, or reports using the Knowledge Base manager on the sidebar to enable RAG-augmented answers."
         )
 
+    def _get_or_create_conversation(self, db: Session, session_id: str) -> str:
+        """Return the conversation_id for the given session_id.
+
+        Uses session_id directly as the ConversationDB primary key so that the
+        caller's notion of 'session' maps 1-to-1 with a conversation row. If no
+        row exists yet it is created here so that message writes always have a
+        valid FK target.
+        """
+        existing = db.query(ConversationDB).filter(ConversationDB.id == session_id).first()
+        if existing:
+            return existing.id
+        conversation = ConversationDB(id=session_id)
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+        return conversation.id
+
     async def get_session_history(self, db: Session, session_id: str) -> List[ChatMessage]:
-        messages = db.query(ChatMessageDB).filter(ChatMessageDB.session_id == session_id).order_by(ChatMessageDB.timestamp.asc()).all()
+        messages = (
+            db.query(ChatMessageDB)
+            .filter(ChatMessageDB.conversation_id == session_id)
+            .order_by(ChatMessageDB.timestamp.asc())
+            .all()
+        )
         return [
             ChatMessage(
                 role=msg.role,
